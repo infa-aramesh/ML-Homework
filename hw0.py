@@ -28,10 +28,10 @@ def readAndProcess(algo):
     dataY = dataXY[:,[13]]
     # use mean and std for future queries
 
-    print("Mean Before: ", None if algo != 'kNN' else mean)
-    print("SD Before: ", None if algo != 'kNN' else std)
-    print("Mean After: ", np.mean(dataX, axis = 0))
-    print("SD After: ", np.std(dataX, axis = 0))
+    # print("Mean Before: ", None if algo != 'kNN' else mean)
+    # print("SD Before: ", None if algo != 'kNN' else std)
+    # print("Mean After: ", np.mean(dataX, axis = 0))
+    # print("SD After: ", np.std(dataX, axis = 0))
     # print(dataXY)
     files = []
     outfile = TemporaryFile()
@@ -40,7 +40,7 @@ def readAndProcess(algo):
         _=outfile.seek(0)
         files.append(np.load(outfile))
     # print(dataX)
-    return collectTrainTuneTestSets(files, 2, 8)
+    return collectTrainTuneTestSets(files, 2, 4)
 
     # print(exampleNames_tune)
    
