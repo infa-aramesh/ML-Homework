@@ -43,8 +43,6 @@ def readAndProcess(algo):
     return collectTrainTuneTestSets(files, 2, 8)
 
     # print(exampleNames_tune)
-   
-
     # print(dataY)
     # print(features)
     # print(exampleNames)
