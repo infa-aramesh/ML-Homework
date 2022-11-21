@@ -40,7 +40,7 @@ def readAndProcess(algo):
         _=outfile.seek(0)
         files.append(np.load(outfile))
     # print(dataX)
-    return collectTrainTuneTestSets(files, 2, 4)
+    return collectTrainTuneTestSets(files, 2, 8)
 
     # print(exampleNames_tune)
    
