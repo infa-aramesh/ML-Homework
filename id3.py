@@ -9,19 +9,34 @@ import sys
 import statistics as stat
 
 dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test = readAndProcess('id3')
-min = np.amin(dataX_train, axis = 0)
-print("Min: ", min)
-max = np.amax(dataX_train, axis = 0)
-print("Max: ", max)
+# min = np.amin(dataX_train, axis = 0)
+# print("Min: ", min)
+# max = np.amax(dataX_train, axis = 0)
+# print("Max: ", max)
 # uniqueVar, counter = np.unique(dataY_train, return_counts=True)
 # print(uniqueVar, counter)
 def discretize(dataX_train):
+    0, 3, 4, 7, 9
+    bins = {
+        0: 12,
+        3: 12,
+        4: 24,
+        7: 22,
+        9: 12
+    }
+    # bins = {
+    #     0: 41,
+    #     3: 48,
+    #     4: 133,
+    #     7: 86,
+    #     9: 39
+    # }
     _, num_cols = dataX_train.shape
     splits = [[] for _ in range(num_cols)]
     for i in range(dataX_train.shape[1]):
         uniqueValues = np.unique(dataX_train[:, i])
         # print(i, len(uniqueValues))
-        categorySize = math.floor(len(uniqueValues) / 17)
+        categorySize = math.floor(len(uniqueValues) / bins.get(i, -1))
         if len(uniqueValues) > categorySize and categorySize > 0:
             keys = sorted(uniqueValues)
             splitLen = len(keys) // categorySize
@@ -79,6 +94,7 @@ def findMinEntropy(dataX_train, dataY_train, selectedColumn):
         else:
             entropy.append(sys.maxsize)
     minEntropy = np.argmin(entropy)
+    # print(entropy)
     return minEntropy, dataX_train
 
 def traverseDescisionTree(data_TuneOrTest, Y, tree):
@@ -120,7 +136,6 @@ def traverseDescisionTree(data_TuneOrTest, Y, tree):
     return positive, negative, res
 
 def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn):
-    # 0, 3, 4, 7, 9
     tree = Tree()
     splits = discretize(dataX_train)
     root = tree.create_node("root", "root", data=HeartDataSet("", None, dataX_train, dataY_train, exampleNames_train, splits))
@@ -173,6 +188,8 @@ def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedCol
 def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test):
     folds = 9
     cumulativePostive, cumulativeNegative = 0, 0
+    results = []
+    bestRate, bestTree = 0, -1
     for i in range(folds):
         selectedColumn = set()
         dataX_train_bkp = np.copy(dataX_train)
@@ -180,11 +197,15 @@ def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tun
         dataX_test_bkp = np.copy(dataX_test)
         sampleSize = dataX_test_bkp.shape[0]
         tree = createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn)
+        results.append(tree)
         postive, negative, res = traverseDescisionTree(dataX_tune, dataY_tune, tree)
         cumulativePostive = cumulativePostive + postive
         cumulativeNegative = cumulativeNegative + negative
         succesRate = (postive / (postive + negative)) * 100
         failureRate = (negative / (postive + negative)) * 100 
+        if succesRate > bestRate:
+            bestRate = succesRate
+            bestTree = i
         print(f'----------SuccessRate in Tune {i}----------', succesRate)
         print(f'----------FailureRate in Tune {i}----------', failureRate)
         # traverseDescisionTree(dataX_test, dataY_test, tree)
@@ -204,10 +225,12 @@ def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tun
     cumulativeNegativePercent = (cumulativeNegative / (cumulativePostive + cumulativeNegative)) * 100
     print("----------Cumulative SuccessRate in Tune----------", cumulativePostivePercent)
     print("----------Cumulative FailureRate in Tune----------", cumulativeNegativePercent)
-    return tree
+    # return results[bestTree]
+    return results
 
-def evaluateTest(tree, dataX_test, dataY_test, exampleNames_test):
-    positive, negative, result = traverseDescisionTree(dataX_test, dataY_test, tree)
+def evaluateTest(trees, dataX_test, dataY_test, exampleNames_test):
+    # for tree in trees:
+    positive, negative, result = traverseDescisionTree(dataX_test, dataY_test, trees[2])
     succesRate = (positive / (positive + negative)) * 100
     failureRate = (negative / (positive + negative)) * 100
     print("----------SuccessRate in Test----------", succesRate)
