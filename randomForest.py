@@ -51,7 +51,7 @@ for depth in featureCount:
         tuneFold = fold
         result = [[] for _ in range(files[fold][files[fold].files[0]].shape[0])]
         acc, bootstrapIdx = 0, -1
-        for i in range(5):
+        for i in range(101):
             # genarate 101 decision trees and take majority votes
             positive, negative, res, dataX_tune, dataY_tune, exampleNames_tune= generateTreesForBootstrap(i, tuneFold, None, None, None)
             if acc < positive:
@@ -78,7 +78,7 @@ print(depthPositive)
 print(depthBootstrap)
 
 # d = random.choice(featureCount)
-d = 7
+d = 4
 print("------Depth------")
 print(d)
 bootstrapIndex = depthBootstrap[d][2]
