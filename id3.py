@@ -7,6 +7,7 @@ from treelib import Tree
 from HeartDataSet import HeartDataSet
 import sys
 import statistics as stat
+import random
 
 dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test = readAndProcess('id3')
 # min = np.amin(dataX_train, axis = 0)
@@ -16,14 +17,14 @@ dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNam
 # uniqueVar, counter = np.unique(dataY_train, return_counts=True)
 # print(uniqueVar, counter)
 def discretize(dataX_train):
-    0, 3, 4, 7, 9
-    bins = {
-        0: 12,
-        3: 12,
-        4: 24,
-        7: 22,
-        9: 12
-    }
+    # 0, 3, 4, 7, 9
+    # bins = {
+    #     0: 12,
+    #     3: 12,
+    #     4: 24,
+    #     7: 22,
+    #     9: 12
+    # }
     # bins = {
     #     0: 41,
     #     3: 48,
@@ -31,6 +32,13 @@ def discretize(dataX_train):
     #     7: 86,
     #     9: 39
     # }
+    bins = {
+        0: 4,
+        3: 5,
+        4: 7,
+        7: 5,
+        9: 5
+    }
     _, num_cols = dataX_train.shape
     splits = [[] for _ in range(num_cols)]
     for i in range(dataX_train.shape[1]):
@@ -99,7 +107,7 @@ def findMinEntropy(dataX_train, dataY_train, selectedColumn):
 
 def traverseDescisionTree(data_TuneOrTest, Y, tree):
     positive, negative = 0, 0
-    res = dict()
+    res = []
     node = tree.get_node(tree.root)
     splits = node.data.splits
     discretizeTuneOrTest(data_TuneOrTest, splits)
@@ -130,12 +138,10 @@ def traverseDescisionTree(data_TuneOrTest, Y, tree):
             positive = positive + 1
         else:
             negative = negative + 1
-        res[row] = [result, Y[row][0]] 
-        # print(row, result, Y[row][0])
-    # print("Positive: ", positive, "Negative: ", negative)
+        res.append(result)
     return positive, negative, res
 
-def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn):
+def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn, algo, d):
     tree = Tree()
     splits = discretize(dataX_train)
     root = tree.create_node("root", "root", data=HeartDataSet("", None, dataX_train, dataY_train, exampleNames_train, splits))
@@ -143,12 +149,18 @@ def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedCol
     q = []
     q.append(root)
     rootId = 0
-    while len(q) > 0 and depth < 3:
+    while len(q) > 0 and depth < d:
         size = len(q)
         for i in range(size):
             node = q.pop(0)
             rootTag = node.tag
-            bestColumn, dataX_train = findMinEntropy(node.data.x, node.data.y, selectedColumn)
+            if algo == 'id3':
+                bestColumn, dataX_train = findMinEntropy(node.data.x, node.data.y, selectedColumn)
+            elif algo == 'rf':
+                bestColumn, dataX_train = random.randint(0, dataX_train.shape[1] - 1), node.data.x
+                if dataX_train.ndim == 1:
+                    dataX_train = np.array([dataX_train])
+            # bestColumn, dataX_train = findMinEntropy(node.data.x, node.data.y, selectedColumn)
             splits = node.data.splits
             # for each value in bestColumn of root node create a node then traverse each node 
             uniqueValues = np.unique(dataX_train[:,bestColumn])
@@ -177,15 +189,15 @@ def createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedCol
         tree.create_node(rootId, rootId, data=HeartDataSet(None, None, result=mode), parent=rootTag)
         isLeaf = tree.get_node(rootId).is_leaf()
         rootId = rootId + 1
-
-    tree.show(data_property="attributeName")
+    # tree.show(data_property=["attributeName", "value"])
+    # tree.show(data_property="attributeName")
     # tree.show(data_property="value")
     # tree.show(data_property="result")
     return tree
     # create result node as leaf
     # traverse the tree with tune data and calculate accuracy
 
-def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test):
+def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test, algo, depth):
     folds = 9
     cumulativePostive, cumulativeNegative = 0, 0
     results = []
@@ -196,7 +208,7 @@ def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tun
         dataX_tune_bkp = np.copy(dataX_tune)
         dataX_test_bkp = np.copy(dataX_test)
         sampleSize = dataX_test_bkp.shape[0]
-        tree = createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn)
+        tree = createDecisionTree(dataX_train, dataY_train, exampleNames_train, selectedColumn, algo, depth)
         results.append(tree)
         postive, negative, res = traverseDescisionTree(dataX_tune, dataY_tune, tree)
         cumulativePostive = cumulativePostive + postive
@@ -225,16 +237,18 @@ def evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tun
     cumulativeNegativePercent = (cumulativeNegative / (cumulativePostive + cumulativeNegative)) * 100
     print("----------Cumulative SuccessRate in Tune----------", cumulativePostivePercent)
     print("----------Cumulative FailureRate in Tune----------", cumulativeNegativePercent)
+    if algo == 'rf':
+        return cumulativePostivePercent
     # return results[bestTree]
-    return results
+    return results, bestTree
 
-def evaluateTest(trees, dataX_test, dataY_test, exampleNames_test):
+def evaluateTest(trees, bestTree, dataX_test, dataY_test, exampleNames_test):
     # for tree in trees:
-    positive, negative, result = traverseDescisionTree(dataX_test, dataY_test, trees[2])
+    positive, negative, result = traverseDescisionTree(dataX_test, dataY_test, trees[bestTree])
     succesRate = (positive / (positive + negative)) * 100
     failureRate = (negative / (positive + negative)) * 100
     print("----------SuccessRate in Test----------", succesRate)
     print("----------FailureRate in Test----------", failureRate)
 
-tree = evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test)
-evaluateTest(tree, dataX_test, dataY_test, exampleNames_test)
+# trees, bestTree = evaluateDecisionTree(dataX_train, dataY_train, exampleNames_train, dataX_tune, dataY_tune, exampleNames_tune, dataX_test, dataY_test, exampleNames_test, 'id3', 3)
+# evaluateTest(trees, bestTree, dataX_test, dataY_test, exampleNames_test)
